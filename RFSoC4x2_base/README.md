@@ -1,62 +1,80 @@
-# FPGA Overlay Project - `base` for RFSoC4x2
+# RFSoC4x2 Base Overlay Project
 
 ## Overview
 
-This project builds a custom FPGA overlay using Xilinx Vivado. It includes:
-- Generating board files
-- Creating the block design
-- Synthesizing and generating the bitstream
-- Checking timing reports
+This repository contains the source code and build scripts for the base FPGA overlay for the RFSoC4x2 board. The overlay provides a standard set of peripherals and interfaces for the board, including:
 
-The project is structured to automate the build process using `make`, simplifying FPGA design workflows.
+*   **Processing System (PS):** Zynq UltraScale+ MPSoC
+*   **Memory:** DDR4 memory controller
+*   **Peripherals:**
+    *   Pmod connectors
+    *   LEDs and RGB LEDs
+    *   Push buttons and switches
+*   **High-Speed I/O:**
+    *   RF Data Converters (RFDCs)
+    *   DisplayPort
 
-the building script is divided in two part
-- base.tcl
-- user.tcl
+The project is automated using a Makefile and Tcl scripts for Vivado, simplifying the build process.
 
-the base come from the example given by xilinx to operate the RFSoC4x2
-The user is a custom script added by the user 
----
+## Repository Structure
+
+The repository is organized as follows:
+
+*   `RFSoC4x2_base/`: The main project directory.
+    *   `base_src/`: Contains the source files for the overlay, including:
+        *   `ip/`: Custom IP cores.
+        *   `src/`: VHDL source files.
+        *   `*.tcl`: Tcl scripts for building the Vivado project.
+        *   `*.py`: Python files for interacting with the overlay.
+        *   `makefile`: The main Makefile for building the project.
+    *   `notebooks/`: Jupyter notebooks with examples.
+    *   `packages/`: PYNQ packages.
+    *   `petalinux_bsp/`: PetaLinux board support package.
 
 ## Prerequisites
 
-Ensure that the following dependencies are installed on your system:
+*   **Vivado 2022.2** (or a compatible version)
+*   `make`
+*   A Linux-based environment (Ubuntu is recommended)
 
-- **Vivado 2022.2** (or compatible version)
-- `wget` (for downloading board files)
-- `make`
-- A Linux-based environment (Ubuntu recommended)
+## Build Instructions
 
-### Environment Setup
+1.  **Source the Vivado Environment:**
 
-Before using Vivado, the Xilinx environment must be sourced makefile automaticaly source vivado if needed vivado path is a constante which can be changed
+    Before running the build, you need to source the Vivado settings script. The path to this script is defined in `RFSoC4x2_base/base_src/makefile`:
 
-In makefile ./base_src/makefile
-```bash
-VIVADO_SETTINGS := /tools/Xilinx/Vivado/2022.2/settings64.sh
-```
+    ```bash
+    VIVADO_SETTINGS := /tools/Xilinx/Vivado/2022.2/settings64.sh
+    ```
 
-### build the bitstream
+    You can either edit this path to match your Vivado installation or source the script manually:
 
-The building process can time a lot of time (30min~1h)
-Make sure you are in the RFSoC4x2_base/base_src folder, then execute the following command
+    ```bash
+    source /path/to/your/Vivado/2022.2/settings64.sh
+    ```
 
-```bash
-make all
-```
+2.  **Build the Bitstream:**
 
-### design characteristics
+    To build the bitstream, navigate to the `RFSoC4x2_base/base_src` directory and run `make`:
 
-#### Clocks
+    ```bash
+    cd RFSoC4x2_base/base_src
+    make all
+    ```
 
-pl_clk0 = 100MHz
+    The build process can take a significant amount of time (30 minutes to an hour).
 
-pl_clk1 = 300MHz
+## Design Characteristics
 
-clk_wiz_0 clk_out1 = 310MHz
+### Clocks
 
-Clock du RFSoC
-    clk_adc0 = 
-    clk_adc1 = 
-    clk_dac0 = 491.52
-    clk_dac1 = 491.52
+*   `pl_clk0`: 100MHz
+*   `pl_clk1`: 300MHz
+*   `clk_wiz_0 clk_out1`: 310MHz
+
+### RFSoC Clocks
+
+*   `clk_adc0`: 491.52 MHz
+*   `clk_adc1`: 491.52 MHz
+*   `clk_dac0`: 491.52 MHz
+*   `clk_dac1`: 491.52 MHz
