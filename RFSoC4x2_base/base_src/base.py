@@ -19,8 +19,49 @@ class BaseOverlay(pynq.Overlay):
     After reloading the base overlay, the I2C and display port should become
     available as well.
 
+    Attributes
+    ----------
+    iop_pmod0 : pynq.lib.Pmod
+        A Pmod object representing Pmod 0.
+    iop_pmod1 : pynq.lib.Pmod
+        A Pmod object representing Pmod 1.
+    PMOD0 : dict
+        A dictionary containing the pin mapping for Pmod 0.
+    PMOD1 : dict
+        A dictionary containing the pin mapping for Pmod 1.
+    PMODA : dict
+        An alias for PMOD0.
+    PMODB : dict
+        An alias for PMOD1.
+    leds : pynq.lib.GPIO
+        A GPIO object for controlling the LEDs.
+    rgbleds : list
+        A list of RGBLED objects for controlling the RGB LEDs.
+    buttons : pynq.lib.GPIO
+        A GPIO object for reading the push buttons.
+    switches : pynq.lib.GPIO
+        A GPIO object for reading the switches.
+    dma : pynq.lib.DMA
+        A DMA object for the CMAC.
+    cmac : pynq.lib.CMAC
+        A CMAC object.
+    i2c_initialized : bool
+        A flag indicating whether the I2C drivers have been initialized.
+    display_port_initialized : bool
+        A flag indicating whether the display port drivers have been initialized.
+
     """
     def __init__(self, *args, **kwargs):
+        """Initializes the BaseOverlay.
+
+        This method initializes the base overlay by calling the parent constructor
+        and then setting up the various peripherals.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        """
         super().__init__(*args, **kwargs)
         if self.is_loaded():
             self.iop_pmod0.mbtype = "Pmod"
@@ -53,14 +94,18 @@ class BaseOverlay(pynq.Overlay):
 
     def set_syzygy_vio(self, voltage):
         """Set syzygy VIO setting to enable syzygy interface.
+
         This method will assert the sygyzy interface enable signal first;
         users should be able to see D46 LED is on.
         Then this method will set the specified VIO setting.
         Only volatile memory will be written.
-        Parameters
-        ----------
-        voltage : float
-            The desired VIO voltage level.
+
+        Args:
+            voltage (float): The desired VIO voltage level.
+
+        Raises:
+            ValueError: If the voltage value is not supported.
+
         """
         if voltage not in DAC101C081_REG:
             raise ValueError("Voltage value not supported.")
@@ -75,12 +120,12 @@ class BaseOverlay(pynq.Overlay):
         This should happen after a bitstream is loaded since the display port
         control pins are connected to EMIO pins coming out from PL.
 
-        Parameters
-        ----------
-        service : str
-            The name of the service that uses the display port.
-        force : bool
-            To force the corresponding service to restart or not.
+        Args:
+            service (str): The name of the service that uses the display port.
+            force (bool): To force the corresponding service to restart or not.
+
+        Raises:
+            RuntimeError: If restarting the service fails.
 
         """
         if force:
@@ -96,9 +141,14 @@ class BaseOverlay(pynq.Overlay):
 
     def init_i2c(self):
         """Initialize the I2C control drivers on RFSoC4x2.
+
         This should happen after a bitstream is loaded since I2C reset
         is connected to PL pins. The I2C-related drivers are made loadable
         modules so they can be removed or inserted.
+
+        Raises:
+            RuntimeError: If removing or inserting a kernel module fails.
+
         """
         # may be required in syzygy - still in progress
         module_list = ['i2c_dev', 'i2c_mux_pca954x', 'i2c_mux']
@@ -124,6 +174,10 @@ class BaseOverlay(pynq.Overlay):
 
         The radio clocks are required to talk to the RF-DCs and only need
         to be initialised once per session.
+
+        Args:
+            lmk_freq (float): The frequency for the LMK clock.
+            lmx_freq (float): The frequency for the LMX clock.
 
         """        
         xrfclk.set_ref_clks(lmk_freq=lmk_freq, lmx_freq=lmx_freq)

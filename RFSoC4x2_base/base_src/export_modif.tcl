@@ -1,10 +1,10 @@
 
 ################################################################
-# This is a generated script based on design: base
 #
-# Though there are limitations about the generated script,
-# the main purpose of this utility is to make learning
-# IP Integrator Tcl commands easier.
+# This script builds a modified version of the base FPGA overlay.
+# It is based on the original `base.tcl` script but may include
+# different IP cores or configurations.
+#
 ################################################################
 
 namespace eval _tcl {

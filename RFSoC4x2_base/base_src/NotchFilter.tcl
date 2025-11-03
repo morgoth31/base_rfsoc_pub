@@ -1,12 +1,15 @@
 
 ################################################################
-# This is a generated script based on design: NotchFilter
 #
-# Though there are limitations about the generated script,
-# the main purpose of this utility is to make learning
-# IP Integrator Tcl commands easier.
+# This script creates a Vivado project for a notch filter IP.
+# The design includes AXI GPIOs for control and status,
+# and the notch filter logic is implemented in VHDL modules.
+#
+# The script is designed to be run from the Vivado Tcl console.
+#
 ################################################################
 
+# Import the VHDL source files for the notch filter design.
 import_files /home/omar/RFSoC4x2/RFSoC4x2_base/base_src/src/cos_12table16.vhd
 import_files /home/omar/RFSoC4x2/RFSoC4x2_base/base_src/src/antinoise.vhd
 import_files /home/omar/RFSoC4x2/RFSoC4x2_base/base_src/src/cascade.vhd

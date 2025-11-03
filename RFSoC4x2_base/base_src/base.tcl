@@ -2,13 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 ################################################################
-# This is a generated script based on design: base
 #
-# Though there are limitations about the generated script,
-# the main purpose of this utility is to make learning
-# IP Integrator Tcl commands easier.
+# This script builds the base FPGA overlay for the RFSoC4x2 board.
+# It sets up the project, creates the block design, instantiates
+# and connects all the necessary IP cores for the base system.
+#
+# The script is designed to be run from the Vivado Tcl console.
+#
 ################################################################
 
+################################################################
+# Procedure to get the directory where the script is located.
+################################################################
 namespace eval _tcl {
 proc get_script_folder {} {
    set script_path [file normalize [info script]]
@@ -20,7 +25,7 @@ variable script_folder
 set script_folder [_tcl::get_script_folder]
 
 ################################################################
-# Check if script is running in correct Vivado version.
+# Check if the script is running in the correct Vivado version.
 ################################################################
 set scripts_vivado_version 2022.2
 set current_vivado_version [version -short]
@@ -43,8 +48,10 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 # project, but make sure you do not have an existing project
 # <./myproj/project_1.xpr> in the current working folder.
 
+# Set the board repository path.
 set_param board.repoPaths board_files/rfsoc4x2/1.0/
 
+# Set the overlay name and create the project if it doesn't exist.
 set overlay_name base
 set list_projs [get_projects -quiet]
 if { $list_projs eq "" } {
@@ -52,10 +59,11 @@ if { $list_projs eq "" } {
    set_property BOARD_PART realdigital.org:rfsoc4x2:part0:1.0 [current_project]
 }
 
+# Set the IP repository path and update the IP catalog.
 set_property ip_repo_paths ./ip [current_project]
 update_ip_catalog
 
-# CHANGE DESIGN NAME HERE
+# Set the design name.
 variable design_name
 set design_name base
 
@@ -63,7 +71,7 @@ set design_name base
 # you can create a design using the following command:
 #    create_bd_design $design_name
 
-# Creating design if needed
+# Create the block design if it doesn't exist.
 set errMsg ""
 set nRet 0
 
@@ -196,6 +204,7 @@ if { $bCheckIPsPassed != 1 } {
 
 
 # Hierarchical cell: channel_20
+# This procedure creates a hierarchical cell for channel 20.
 proc create_hier_cell_channel_20_1 { parentCell nameHier } {
 
   variable script_folder
@@ -2116,8 +2125,7 @@ proc create_hier_cell_CMAC { parentCell nameHier } {
 }
 
 
-# Procedure to create entire design; Provide argument to make
-# procedure reusable. If parentCell is "", will use root.
+# Procedure to create the entire root design.
 proc create_root_design { parentCell } {
 
   variable script_folder
@@ -4240,43 +4248,46 @@ create_root_design ""
 
 
 ##################################################################
-# Suppression CMAC
+# CMAC Block Removal
 ##################################################################
 
-# suppression du bloc CMAC
+# Delete the CMAC block and its associated connections.
 delete_bd_objs [get_bd_intf_nets CMAC_M00_AXI] [get_bd_nets CMAC_dout] [get_bd_intf_nets axi_hpm0_fpd_M01_AXI] [get_bd_intf_nets axi_hpm1_fpd_M02_AXI] [get_bd_intf_nets gt_ref_clk_0_1] [get_bd_intf_nets CMAC_gt_serial_port_0] [get_bd_cells CMAC]
 
-# suppression de 2 interruptions venant de cmac
+# Reduce the number of interrupt ports on the AXI interrupt controller.
 startgroup
 set_property CONFIG.NUM_PORTS {6} [get_bd_cells axi_intc_concat]
 endgroup
 
-# passe a 2 ports au lieu de 3
+# Reduce the number of master interfaces on the AXI interconnects.
 startgroup
 set_property CONFIG.NUM_MI {2} [get_bd_cells axi_hpm1_fpd]
 endgroup
 
-# passe a 1 port au lieu de 2
 startgroup
 set_property CONFIG.NUM_MI {1} [get_bd_cells axi_hpm0_fpd]
 endgroup
 
 
-# suppression pins inutile
+# Delete unused interface ports.
 delete_bd_objs [get_bd_intf_ports gt_rtl]
 delete_bd_objs [get_bd_intf_ports diff_clock_rtl]
 
-# suppression du port hp0
+# Disable the S_AXI_GP2 port on the Zynq UltraScale+ MPSoC.
 startgroup
 set_property CONFIG.PSU__USE__S_AXI_GP2 {0} [get_bd_cells zynq_ultra_ps_e_0]
 endgroup
 
 ##################################################################
-# Ajout de la fonction user
+# Source User Tcl Script
 ##################################################################
 
 source user.tcl
 
+
+##################################################################
+# Finalize Design
+##################################################################
 
 assign_bd_address
 
