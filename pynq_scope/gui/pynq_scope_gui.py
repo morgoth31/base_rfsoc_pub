@@ -6,10 +6,12 @@ import numpy as np
 import socket
 import threading
 import struct
+import argparse
 
 class PynqScopeGUI:
-    def __init__(self, master):
+    def __init__(self, master, verbose=False):
         self.master = master
+        self.verbose = verbose
         master.title("PYNQ Scope")
 
         # Create the main frame
@@ -87,18 +89,27 @@ class PynqScopeGUI:
 
     def connect(self):
         try:
+            ip = self.ip_entry.get()
+            port = int(self.port_entry.get())
+            if self.verbose:
+                print(f"Connecting to {ip}:{port}")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((self.ip_entry.get(), int(self.port_entry.get())))
+            self.socket.connect((ip, port))
             self.is_connected = True
             self.connect_button.config(state=tk.DISABLED)
             self.disconnect_button.config(state=tk.NORMAL)
             self.start_button.config(state=tk.NORMAL)
             self.send_config_button.config(state=tk.NORMAL)
+            self.status_bar.config(text=f"Connected to {ip}:{port}")
         except Exception as e:
-            print(f"Error connecting: {e}")
+            self.status_bar.config(text=f"Error connecting: {e}")
+            if self.verbose:
+                print(f"Error connecting: {e}")
 
     def disconnect(self):
         if self.is_connected:
+            if self.verbose:
+                print("Disconnecting")
             self.stop_acquisition()
             self.socket.close()
             self.is_connected = False
@@ -106,39 +117,63 @@ class PynqScopeGUI:
             self.disconnect_button.config(state=tk.DISABLED)
             self.start_button.config(state=tk.DISABLED)
             self.send_config_button.config(state=tk.DISABLED)
+            self.status_bar.config(text="Disconnected")
 
     def send_config(self):
         if self.is_connected:
-            rx_size = self.rx_size_entry.get()
-            ndesc = self.ndesc_entry.get()
-            config_str = f"config,{rx_size},{ndesc}"
-            self.socket.sendall(config_str.encode())
+            try:
+                rx_size = self.rx_size_entry.get()
+                ndesc = self.ndesc_entry.get()
+                config_str = f"config,{rx_size},{ndesc}"
+                if self.verbose:
+                    print(f"Sending config: {config_str}")
+                self.socket.sendall(config_str.encode())
+                self.status_bar.config(text="Config sent")
+            except Exception as e:
+                self.status_bar.config(text=f"Error sending config: {e}")
+                if self.verbose:
+                    print(f"Error sending config: {e}")
 
     def start_acquisition(self):
         if self.is_connected and not self.is_acquiring:
+            if self.verbose:
+                print("Starting acquisition")
             self.is_acquiring = True
             self.start_button.config(state=tk.DISABLED)
             self.stop_button.config(state=tk.NORMAL)
             self.acquisition_thread = threading.Thread(target=self.acquisition_loop)
             self.acquisition_thread.start()
+            self.status_bar.config(text="Acquisition started")
 
     def stop_acquisition(self):
         if self.is_acquiring:
+            if self.verbose:
+                print("Stopping acquisition")
             self.is_acquiring = False
-            self.socket.sendall(b"stop")
+            try:
+                self.socket.sendall(b"stop")
+            except Exception as e:
+                self.status_bar.config(text=f"Error stopping acquisition: {e}")
+                if self.verbose:
+                    print(f"Error stopping acquisition: {e}")
             if self.acquisition_thread:
                 self.acquisition_thread.join()
             self.start_button.config(state=tk.NORMAL)
             self.stop_button.config(state=tk.DISABLED)
+            self.status_bar.config(text="Acquisition stopped")
 
     def acquisition_loop(self):
-        self.socket.sendall(b"start")
-        while self.is_acquiring:
-            try:
+        try:
+            if self.verbose:
+                print("Sending start command")
+            self.socket.sendall(b"start")
+            while self.is_acquiring:
                 # Receive data from the server
                 data = self.socket.recv(8192)
                 if not data:
                     break
+                if self.verbose:
+                    print(f"Received {len(data)} bytes")
 
                 # Unpack the data
                 values = struct.unpack(f"{len(data)//2}H", data)
@@ -147,11 +182,17 @@ class PynqScopeGUI:
                 self.line.set_ydata(values)
                 self.ax.set_xlim(0, len(values))
                 self.canvas.draw()
-            except Exception as e:
+        except Exception as e:
+            self.status_bar.config(text=f"Error in acquisition loop: {e}")
+            if self.verbose:
                 print(f"Error in acquisition loop: {e}")
-                break
+            self.stop_acquisition()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="PYNQ Scope GUI")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    args = parser.parse_args()
+
     root = tk.Tk()
-    app = PynqScopeGUI(root)
+    app = PynqScopeGUI(root, verbose=args.verbose)
     root.mainloop()

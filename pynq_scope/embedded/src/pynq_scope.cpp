@@ -3,6 +3,7 @@
 #include <vector>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
 #include <thread>
@@ -18,8 +19,17 @@ static int RXSIZE                = 8192;           // DMA packet size
 // Network constants
 #define TCP_PORT 8080
 
+// Global verbose flag
+bool verbose = false;
+
 // Function to handle a client connection
-void handle_client(int client_socket) {
+void handle_client(int client_socket, struct sockaddr_in address) {
+    char client_ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &address.sin_addr, client_ip, INET_ADDRSTRLEN);
+    if (verbose) {
+        std::cout << "Handling new client from " << client_ip << std::endl;
+    }
+
     bool is_streaming = false;
     std::thread dma_thread;
 
@@ -27,6 +37,9 @@ void handle_client(int client_socket) {
     auto dma_loop = [&](int sock) {
         // Initialize DMA
         DMAController dmac(AXI_DMA_BASEADDR);
+        if (verbose) {
+            std::cout << "Resetting DMA" << std::endl;
+        }
         dmac.reset();
 
         // Open /dev/mem for DMA buffer mapping
@@ -36,18 +49,33 @@ void handle_client(int client_socket) {
             return;
         }
         char* udma_buf = (char*)mmap(NULL, RXSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, DMA_BUFFER_BASEADDR);
+        if (udma_buf == MAP_FAILED) {
+            perror("mmap failed");
+            close(mem_fd);
+            return;
+        }
 
         while(is_streaming) {
+            if (verbose) {
+                std::cout << "Starting DMA transfer" << std::endl;
+            }
             dmac.start_s2mm(DMA_BUFFER_BASEADDR, RXSIZE);
             while(!dmac.s2mm_status_idle()); // Wait for DMA to complete
+            if (verbose) {
+                std::cout << "DMA transfer complete" << std::endl;
+            }
 
             if(send(sock, udma_buf, RXSIZE, 0) < 0) {
+                perror("send failed");
                 is_streaming = false;
             }
         }
 
         munmap(udma_buf, RXSIZE);
         close(mem_fd);
+        if (verbose) {
+            std::cout << "DMA thread finished" << std::endl;
+        }
     };
 
     char buffer[1024] = {0};
@@ -63,9 +91,15 @@ void handle_client(int client_socket) {
         std::string command(buffer, len);
 
         if (command == "start") {
+            if (verbose) {
+                std::cout << "Received start command" << std::endl;
+            }
             is_streaming = true;
             dma_thread = std::thread(dma_loop, client_socket);
         } else if (command == "stop") {
+            if (verbose) {
+                std::cout << "Received stop command" << std::endl;
+            }
             is_streaming = false;
             if (dma_thread.joinable()) {
                 dma_thread.join();
@@ -74,13 +108,22 @@ void handle_client(int client_socket) {
     }
 
     close(client_socket);
+    if (verbose) {
+        std::cout << "Client disconnected" << std::endl;
+    }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--verbose") {
+            verbose = true;
+        }
+    }
+
     int server_fd, new_socket;
     struct sockaddr_in address;
     int opt = 1;
-    int addrlen = sizeof(address);
+    socklen_t addrlen = sizeof(address);
 
     // Creating socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -110,11 +153,11 @@ int main() {
     std::cout << "Server listening on port " << TCP_PORT << std::endl;
 
     while(true) {
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen))<0) {
             perror("accept");
-            exit(EXIT_FAILURE);
+            continue; // Continue listening for other clients
         }
-        std::thread client_thread(handle_client, new_socket);
+        std::thread client_thread(handle_client, new_socket, address);
         client_thread.detach();
     }
 
