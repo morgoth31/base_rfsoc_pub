@@ -6,13 +6,13 @@
 #include <unistd.h>
 #include <cstring>
 #include <thread>
-#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "dma.h"
 
 // DMA constants
 #define AXI_DMA_BASEADDR      0x40400000     // AXI DMA base address
+#define DMA_BUFFER_BASEADDR   0x10000000     // Physical address of DMA buffer
 static int RXSIZE                = 8192;           // DMA packet size
 
 // Network constants
@@ -29,18 +29,16 @@ void handle_client(int client_socket) {
         DMAController dmac(AXI_DMA_BASEADDR);
         dmac.reset();
 
-        // Open udmabuf for data buffers
-        int buf_fd = open("/dev/udmabuf0", O_RDWR | O_SYNC);
-        if (buf_fd < 0) {
-            perror("Failed to open /dev/udmabuf0");
+        // Open /dev/mem for DMA buffer mapping
+        int mem_fd = open("/dev/mem", O_RDWR | O_SYNC);
+        if (mem_fd < 0) {
+            perror("Failed to open /dev/mem");
             return;
         }
-        uint32_t buf_phys_addr;
-        ioctl(buf_fd, 0, &buf_phys_addr);
-        char* udma_buf = (char*)mmap(NULL, RXSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, buf_fd, 0);
+        char* udma_buf = (char*)mmap(NULL, RXSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, DMA_BUFFER_BASEADDR);
 
         while(is_streaming) {
-            dmac.start_s2mm(buf_phys_addr, RXSIZE);
+            dmac.start_s2mm(DMA_BUFFER_BASEADDR, RXSIZE);
             while(!dmac.s2mm_status_idle()); // Wait for DMA to complete
 
             if(send(sock, udma_buf, RXSIZE, 0) < 0) {
@@ -49,7 +47,7 @@ void handle_client(int client_socket) {
         }
 
         munmap(udma_buf, RXSIZE);
-        close(buf_fd);
+        close(mem_fd);
     };
 
     char buffer[1024] = {0};

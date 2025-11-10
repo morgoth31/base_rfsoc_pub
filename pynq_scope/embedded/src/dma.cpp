@@ -35,6 +35,7 @@ uint32_t DMAController::read_reg(uint32_t offset) {
 void DMAController::reset() {
     write_reg(S2MM_DMACR, 0x04); // Set reset bit
     while(read_reg(S2MM_DMACR) & 0x04); // Wait for reset to complete
+    write_reg(S2MM_DMACR, 0x01); // Enable DMA channel
 }
 
 bool DMAController::s2mm_status_halted() {
