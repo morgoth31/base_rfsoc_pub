@@ -7,6 +7,8 @@
 #include <cstring>
 #include <thread>
 #include <sys/ioctl.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include "dma.h"
 
 // DMA constants
