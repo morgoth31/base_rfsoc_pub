@@ -133,20 +133,11 @@ class PynqScopeGUI:
 
     def acquisition_loop(self):
         self.socket.sendall(b"start")
-        buffer_size = int(self.rx_size_entry.get())
-
         while self.is_acquiring:
             try:
-                # Receive the complete buffer
-                data = bytearray()
-                while len(data) < buffer_size:
-                    packet = self.socket.recv(buffer_size - len(data))
-                    if not packet:
-                        break
-                    data.extend(packet)
-
-                if len(data) != buffer_size:
-                    print("Incomplete data received, stopping.")
+                # Receive data from the server
+                data = self.socket.recv(8192)
+                if not data:
                     break
 
                 # Unpack the data
