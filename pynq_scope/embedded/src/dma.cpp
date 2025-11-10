@@ -35,7 +35,6 @@ uint32_t DMAController::read_reg(uint32_t offset) {
 void DMAController::reset() {
     write_reg(S2MM_DMACR, 0x04); // Set reset bit
     while(read_reg(S2MM_DMACR) & 0x04); // Wait for reset to complete
-    write_reg(S2MM_DMACR, read_reg(S2MM_DMACR) | 0x01); // Enable SG mode
 }
 
 bool DMAController::s2mm_status_halted() {
@@ -54,10 +53,4 @@ void DMAController::start_s2mm(uint32_t dest_addr, uint32_t len) {
     write_reg(S2MM_DMACR, 0x01); // Start the DMA
     write_reg(S2MM_DA, dest_addr);
     write_reg(S2MM_LENGTH, len);
-}
-
-void DMAController::start_s2mm_sg(uint32_t desc_addr) {
-    write_reg(S2MM_DMACR, read_reg(S2MM_DMACR) | 0x01); // Start the DMA
-    write_reg(S2MM_CURDESC, desc_addr);
-    write_reg(S2MM_TAILDESC, desc_addr + (NDESC -1) * sizeof(SG_Descriptor));
 }
