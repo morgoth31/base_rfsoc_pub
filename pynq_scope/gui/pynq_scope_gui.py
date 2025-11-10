@@ -30,7 +30,7 @@ class PynqScopeGUI:
         self.ip_label.grid(row=1, column=0, sticky=tk.W)
         self.ip_entry = ttk.Entry(self.main_frame)
         self.ip_entry.grid(row=1, column=1, sticky=(tk.W, tk.E))
-        self.ip_entry.insert(0, "192.168.1.10")
+        self.ip_entry.insert(0, "192.168.144.26")
 
         self.port_label = ttk.Label(self.main_frame, text="Port:")
         self.port_label.grid(row=2, column=0, sticky=tk.W)
@@ -179,7 +179,8 @@ class PynqScopeGUI:
                 values = struct.unpack(f"{len(data)//2}H", data)
 
                 # Update the plot
-                self.line.set_ydata(values)
+                x_values = np.arange(len(values))
+                self.line.set_data(x_values, values)
                 self.ax.set_xlim(0, len(values))
                 self.canvas.draw()
         except Exception as e:
