@@ -11,8 +11,6 @@
 
 // DMA constants
 #define AXI_DMA_BASEADDR      0x40400000     // AXI DMA base address
-#define DESC_BASEADDR         0x40000000     // scatter-gather block descriptors memory area
-static int NDESC                 = 8;              // only for scatter-gather mode
 static int RXSIZE                = 8192;           // DMA packet size
 
 // Network constants
@@ -29,51 +27,26 @@ void handle_client(int client_socket) {
         DMAController dmac(AXI_DMA_BASEADDR);
         dmac.reset();
 
-        // Open udmabuf for descriptors
-        int desc_fd = open("/dev/udmabuf0", O_RDWR | O_SYNC);
-        if (desc_fd < 0) {
-            perror("Failed to open /dev/udmabuf0");
-            return;
-        }
-        uint32_t desc_phys_addr;
-        ioctl(desc_fd, 0, &desc_phys_addr);
-        SG_Descriptor* descriptors = (SG_Descriptor*)mmap(NULL, NDESC * sizeof(SG_Descriptor), PROT_READ | PROT_WRITE, MAP_SHARED, desc_fd, 0);
-
         // Open udmabuf for data buffers
-        int buf_fd = open("/dev/udmabuf1", O_RDWR | O_SYNC);
+        int buf_fd = open("/dev/udmabuf0", O_RDWR | O_SYNC);
         if (buf_fd < 0) {
-            perror("Failed to open /dev/udmabuf1");
+            perror("Failed to open /dev/udmabuf0");
             return;
         }
         uint32_t buf_phys_addr;
         ioctl(buf_fd, 0, &buf_phys_addr);
-        char* udma_buf = (char*)mmap(NULL, NDESC * RXSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, buf_fd, 0);
-
-        // Initialize descriptors
-        for (int i = 0; i < NDESC; ++i) {
-            descriptors[i].next_desc = desc_phys_addr + ((i + 1) % NDESC) * sizeof(SG_Descriptor);
-            descriptors[i].buffer_addr = buf_phys_addr + i * RXSIZE;
-            descriptors[i].control = RXSIZE;
-            descriptors[i].status = 0;
-        }
-
-        dmac.start_s2mm_sg(desc_phys_addr);
-        int current_desc = 0;
+        char* udma_buf = (char*)mmap(NULL, RXSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, buf_fd, 0);
 
         while(is_streaming) {
-            if (descriptors[current_desc].status & 0x80000000) { // Check for completed bit
-                if(send(sock, udma_buf + current_desc * RXSIZE, RXSIZE, 0) < 0) {
-                    is_streaming = false;
-                }
-                descriptors[current_desc].status = 0; // Clear status
-                dmac.start_s2mm_sg(desc_phys_addr + current_desc * sizeof(SG_Descriptor)); // Re-queue
-                current_desc = (current_desc + 1) % NDESC;
+            dmac.start_s2mm(buf_phys_addr, RXSIZE);
+            while(!dmac.s2mm_status_idle()); // Wait for DMA to complete
+
+            if(send(sock, udma_buf, RXSIZE, 0) < 0) {
+                is_streaming = false;
             }
         }
 
-        munmap(descriptors, NDESC * sizeof(SG_Descriptor));
-        munmap(udma_buf, NDESC * RXSIZE);
-        close(desc_fd);
+        munmap(udma_buf, RXSIZE);
         close(buf_fd);
     };
 
@@ -96,14 +69,6 @@ void handle_client(int client_socket) {
             is_streaming = false;
             if (dma_thread.joinable()) {
                 dma_thread.join();
-            }
-        } else if (command.rfind("config,", 0) == 0) {
-            std::string values = command.substr(7);
-            size_t comma_pos = values.find(",");
-            if (comma_pos != std::string::npos) {
-                RXSIZE = std::stoi(values.substr(0, comma_pos));
-                NDESC = std::stoi(values.substr(comma_pos + 1));
-                std::cout << "RXSIZE=" << RXSIZE << ", NDESC=" << NDESC << std::endl;
             }
         }
     }
