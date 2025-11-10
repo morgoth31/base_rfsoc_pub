@@ -8,9 +8,8 @@ CXX := aarch64-linux-gnu-g++
 LD := aarch64-linux-gnu-g++
 
 # Directories
-LIB_DIR := libaxidma
-INC_DIR := $(LIB_DIR)/include
 SRC_DIR := src
+INC_DIR := $(SRC_DIR)
 BUILD_DIR := build
 
 # Source files
@@ -19,7 +18,7 @@ OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
 
 # Flags
 CPPFLAGS := -I$(INC_DIR) -std=c++11 -O2
-LDFLAGS := -L$(LIB_DIR)/build -laxidma
+LDFLAGS := -lpthread
 
 # Target
 TARGET := $(BUILD_DIR)/pynq_scope
